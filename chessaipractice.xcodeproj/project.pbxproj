@@ -35,6 +35,11 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		5852AEB72F416BD0001E7798 /* Screenshots */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Screenshots;
+			sourceTree = "<group>";
+		};
 		58E465502F412D4000FD881B /* chessaipractice */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = chessaipractice;
@@ -85,6 +90,7 @@
 				58E4656B2F412D4200FD881B /* chessaipracticeUITests */,
 				58E4654F2F412D4000FD881B /* Products */,
 				58E465902F412E0500FD881B /* README.md */,
+				5852AEB72F416BD0001E7798 /* Screenshots */,
 			);
 			sourceTree = "<group>";
 		};
@@ -114,6 +120,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				5852AEB72F416BD0001E7798 /* Screenshots */,
 				58E465502F412D4000FD881B /* chessaipractice */,
 			);
 			name = chessaipractice;
