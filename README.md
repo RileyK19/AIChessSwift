@@ -8,9 +8,11 @@ The game engine is complete — move generation, check/checkmate/stalemate detec
 
 ## Screenshots
 
-![Home Screen](Screenshots/HomeScreen.png)
-![Game Screen](Screenshots/GameScreen.png)
-![End Game Screen](Screenshots/EndGameScreen.png)
+<p>
+  <img src="Screenshots/HomeScreen.png" width="30%">
+  <img src="Screenshots/GameScreen.png" width="30%">
+  <img src="Screenshots/EndGameScreen.png" width="30%">
+</p>
 
 ---
 
