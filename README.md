@@ -1,131 +1,130 @@
-# ChessApp — Minimax Starter
+# ♟ Chess AI — Minimax from Scratch
 
-A fully playable SwiftUI chess app built for you to plug in your own minimax AI.
+A fully playable iOS chess app built in SwiftUI, designed as a learning project for implementing minimax AI with alpha-beta pruning.
+
+The game engine is complete — move generation, check/checkmate/stalemate detection, castling, en passant, pawn promotion. The AI stub is intentionally left for you to implement.
 
 ---
 
-## Files
+## Screenshots
 
-| File | Purpose |
+<!-- Add screenshots here -->
+
+---
+
+## Features
+
+- Full chess rules engine (all special moves included)
+- Two player local mode
+- vs AI mode with configurable search depth (1–10)
+- Board flips when playing as black
+- Move history list with algebraic notation
+- Captured pieces display
+- Promotion picker
+- Dark mode support
+
+---
+
+## AI Implementation
+
+The engine is in `ChessAI.swift`. The `bestMove(on:)` method is where the minimax search lives.
+
+Current implementation:
+- Minimax with alpha-beta pruning
+- Move ordering by surface evaluation (helps pruning)
+- Custom evaluation function combining:
+  - Material score (piece values)
+  - Tension (hanging/contested pieces)
+  - Activity (piece pressure on enemy pieces)
+  - Piece-square tables (positional bonuses)
+
+### Evaluation Heuristics
+
+| Component | What it measures |
 |---|---|
-| `Models.swift` | `Position`, `ChessPiece`, `Move`, `GameStatus` |
-| `ChessBoard.swift` | Full rules engine — move generation, check, castling, en passant, promotion |
-| **`ChessAI.swift`** | ⭐ **Your file** — implement `bestMove(on:)` here |
-| `GameViewModel.swift` | State machine connecting board ↔ UI ↔ AI |
-| `BoardView.swift` | SwiftUI board + square rendering |
-| `ContentView.swift` | Home screen, game screen, promotion picker |
+| Material | Raw piece values (pawn=100, knight=320, bishop=330, rook=500, queen=900) |
+| Tension | Penalty for hanging pieces, small penalty for contested pieces |
+| Activity | Bonus for pieces that are eyeing high-value enemy targets |
+| Positional | Piece-square tables rewarding good squares (center control, king safety) |
 
 ---
 
-## Setup in Xcode
+## Project Structure
 
-1. **New Project** → iOS → App
-   - Product Name: `ChessApp`
-   - Interface: `SwiftUI`
-   - Language: `Swift`
-
-2. **Delete** the generated `ContentView.swift`
-
-3. **Drag all `.swift` files** from this folder into the Xcode project navigator
-   (check "Copy items if needed")
-
-4. **Add board colors** (optional): In `Assets.xcassets` add two Color Sets named
-   `LightSquare` and `DarkSquare`. If you skip this, Xcode will warn but the app
-   will still build — edit `SquareView` in `BoardView.swift` to use the fallback colors.
-
-5. **Run** on the simulator or device — two-player mode works immediately.
+```
+ChessApp/
+├── Models.swift          # Position, ChessPiece, Move, GameStatus
+├── ChessBoard.swift      # Full rules engine + evaluate()
+├── ChessAI.swift         # Minimax AI — the interesting file
+├── GameViewModel.swift   # State machine connecting board ↔ UI ↔ AI
+├── BoardView.swift       # SwiftUI board rendering
+├── ContentView.swift     # Screens: home, depth picker, game
+└── PromotionPickerView.swift
+```
 
 ---
 
-## Implementing Your Minimax AI
+## Setup
 
-Open **`ChessAI.swift`**. The only method you need to implement is:
+1. Clone the repo
+2. Open in Xcode (16.2+ recommended)
+3. Select your simulator or device
+4. Build and run — no dependencies, no package manager
 
-```swift
-func bestMove(on board: ChessBoard) -> Move?
-```
+---
 
-The starter code just picks a random legal move. Replace it with minimax.
+## How Minimax Works
 
-### Key ChessBoard API
-
-```swift
-// Get all legal moves for a side
-let moves = board.legalMoves(for: .white)   // → [Move]
-
-// Apply a move (mutates the board — copy first!)
-let copy = ChessBoard(copying: board)
-copy.applyMove(someMove)
-
-// Evaluate the position (white-positive, material only to start)
-let score = board.evaluate()   // → Int
-
-// Check game status
-let status = board.gameStatus()
-// → .playing | .check(color) | .checkmate(color) | .stalemate | .draw
-```
-
-### Minimax Pseudocode
+The AI searches a game tree of possible moves to a fixed depth, assuming both sides play optimally.
 
 ```
 minimax(board, depth, isMaximising):
     if depth == 0 or game over:
-        return board.evaluate()
+        return evaluate(board)
 
-    if isMaximising:            // White's turn — wants highest score
+    if isMaximising:          # white wants highest score
         best = -∞
-        for move in board.legalMoves(for: .white):
-            copy = ChessBoard(copying: board)
-            copy.applyMove(move)
-            score = minimax(copy, depth - 1, false)
-            best = max(best, score)
+        for each move:
+            copy board, apply move
+            best = max(best, minimax(copy, depth-1, false))
         return best
-
-    else:                       // Black's turn — wants lowest score
+    else:                     # black wants lowest score
         best = +∞
-        for move in board.legalMoves(for: .black):
-            copy = ChessBoard(copying: board)
-            copy.applyMove(move)
-            score = minimax(copy, depth - 1, true)
-            best = min(best, score)
+        for each move:
+            copy board, apply move
+            best = min(best, minimax(copy, depth-1, true))
         return best
 ```
 
-### Step-by-step progression
+Alpha-beta pruning cuts branches that can't affect the final result, allowing deeper search in the same time.
 
-1. **Implement basic minimax** (depth 2–3) — should already beat random
-2. **Add alpha-beta pruning** — same results, much faster, allows deeper search
-3. **Improve `evaluate()`** in `ChessBoard.swift`:
-   - Add piece-square tables (reward knights in the center, etc.)
-   - Reward mobility (count legal moves)
-   - Penalise doubled/isolated pawns
-4. **Add move ordering** — try captures first for better alpha-beta cutoffs
-5. **Add quiescence search** — keep searching captures past the depth limit to avoid horizon effect
+### Depth vs Speed (approximate, varies by position)
 
-### Adjust search depth
-
-```swift
-// In GameViewModel.startVsAI():
-vm.startVsAI(playerColor: .white, depth: 3)
-//                                       ^ change this (3 = good starting point)
-// depth 1 = trivial   depth 3 = decent   depth 5 = slow but strong
-```
+| Depth | Speed |
+|---|---|
+| 1–2 | Instant |
+| 3 | ~1 second |
+| 4 | ~5–15 seconds |
+| 5+ | Very slow |
 
 ---
 
-## Board Coordinate System
+## Things to Try
 
-```
-rank 7  ♜ ♞ ♝ ♛ ♚ ♝ ♞ ♜   ← Black back rank
-rank 6  ♟ ♟ ♟ ♟ ♟ ♟ ♟ ♟
-rank 5  .  .  .  .  .  .  .  .
-rank 4  .  .  .  .  .  .  .  .
-rank 3  .  .  .  .  .  .  .  .
-rank 2  .  .  .  .  .  .  .  .
-rank 1  ♙ ♙ ♙ ♙ ♙ ♙ ♙ ♙
-rank 0  ♖ ♘ ♗ ♕ ♔ ♗ ♘ ♖   ← White back rank
-        a  b  c  d  e  f  g  h
-       file 0 ............ file 7
-```
+- **Quiescence search** — keep searching captures past the depth limit to avoid the horizon effect
+- **Iterative deepening** — search depth 1, 2, 3... using shallower results to order moves better
+- **Transposition table** — cache already-evaluated positions to avoid redundant work
+- **Better evaluation** — pawn structure, king safety, rook on open files
 
-`evaluate()` is always from White's perspective (positive = good for white).
+---
+
+## Built With
+
+- Swift / SwiftUI
+- No external dependencies
+
+---
+
+## License
+
+MIT

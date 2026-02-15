@@ -7,52 +7,7 @@
 
 import Foundation
 
-// MARK: - Chess AI — YOUR MINIMAX IMPLEMENTATION GOES HERE
-//
-// This file is intentionally left as a stub.
-// The app wires everything up for you — you just need to implement bestMove().
-//
-// How the app calls your AI:
-//   1. User picks "vs Robot" mode and chooses their colour
-//   2. When it's the AI's turn, GameViewModel calls:
-//          let move = ai.bestMove(on: board)
-//   3. The app applies that move and updates the UI
-//
-// The ChessBoard object passed to you has everything you need:
-//   • board.legalMoves(for: color)   → [Move]   all legal moves for a side
-//   • board.applyMove(_ move)         → mutates the board (use a copy!)
-//   • board.evaluate()                → Int      material score, white-positive
-//   • board.gameStatus()              → GameStatus (.playing / .check / .checkmate / .stalemate)
-//   • ChessBoard(copying: board)      → deep copy for tree search
-//
-// ─────────────────────────────────────────────────────────────────────────────
-//  MINIMAX PSEUDOCODE (implement below):
-//
-//  function minimax(board, depth, isMaximising):
-//      if depth == 0 or game is over:
-//          return board.evaluate()
-//
-//      if isMaximising:
-//          bestScore = -∞
-//          for each move in board.legalMoves(for: .white):
-//              copy = ChessBoard(copying: board)
-//              copy.applyMove(move)
-//              score = minimax(copy, depth - 1, false)
-//              bestScore = max(bestScore, score)
-//          return bestScore
-//      else:
-//          bestScore = +∞
-//          for each move in board.legalMoves(for: .black):
-//              copy = ChessBoard(copying: board)
-//              copy.applyMove(move)
-//              score = minimax(copy, depth - 1, true)
-//              bestScore = min(bestScore, score)
-//          return bestScore
-//
-//  Once minimax works, try adding Alpha-Beta pruning:
-//      • Pass alpha and beta through every recursive call
-//      • After each child, prune if beta <= alpha
-// ─────────────────────────────────────────────────────────────────────────────
+// MARK: - Chess AI
 
 class ChessAI {
 
@@ -64,27 +19,10 @@ class ChessAI {
         self.depth = depth
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TODO: Implement this method!
-    //
-    // Return the best Move for `self.color` on the given board.
-    // Return nil only if there are literally no legal moves (should not happen
-    // in normal play — the app handles checkmate/stalemate before calling this).
-    // ─────────────────────────────────────────────────────────────────────────
     func bestMove(on board: ChessBoard) -> Move? {
-
-        // ── Starter code: picks a random legal move so the app runs ──────────
-        // Delete this and replace with your minimax search!
-//        let moves = board.legalMoves(for: color)
-//        return moves.randomElement()
         let (move, _) = minimax(board: board, depth: depth, isMaximising: (color == .white))
         return move
-        // ─────────────────────────────────────────────────────────────────────
     }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // TODO: Implement minimax here (and optionally alpha-beta below)
-    // ─────────────────────────────────────────────────────────────────────────
     
     private func attackedSquares(on board: ChessBoard, by color: PieceColor) -> Set<Position> {
         var attacked = Set<Position>()
@@ -303,8 +241,4 @@ class ChessAI {
 //         }
 //         return sorted[0]
      }
-
-    // private func alphaBeta(board: ChessBoard, depth: Int, alpha: Int, beta: Int, isMaximising: Bool) -> Int {
-    //     // your code here
-    // }
 }
