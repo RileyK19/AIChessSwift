@@ -2,21 +2,23 @@
 
 A fully playable iOS chess app built in SwiftUI, designed as a learning project for implementing minimax AI with alpha-beta pruning.
 
-The game engine is complete — move generation, check/checkmate/stalemate detection, castling, en passant, pawn promotion. The AI stub is intentionally left for you to implement.
+The game engine includes move generation, check/checkmate/stalemate detection, castling, en passant, pawn promotion.
 
 ---
 
 ## Screenshots
 
-![Home Screen](screenshots/HomeScreen.png)
-![Game Screen](screenshots/GameScreen.png)
-![End Game Screen](screenshots/EndGameScreen.png)
+<p>
+  <img src="Screenshots/HomeScreen.png" width="30%">
+  <img src="Screenshots/GameScreen.png" width="30%">
+  <img src="Screenshots/EndGameScreen.png" width="30%">
+</p>
 
 ---
 
 ## Features
 
-- Full chess rules engine (all special moves included)
+- Full chess rules engine
 - Two player local mode
 - vs AI mode with configurable search depth (1–10)
 - Board flips when playing as black
@@ -129,4 +131,26 @@ Alpha-beta pruning cuts branches that can't affect the final result, allowing de
 
 ## License
 
-MIT
+```
+MIT License
+
+Copyright (c) 2026 R. Koo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
