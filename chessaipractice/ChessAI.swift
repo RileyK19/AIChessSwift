@@ -24,153 +24,153 @@ class ChessAI {
         return move
     }
     
-    private func attackedSquares(on board: ChessBoard, by color: PieceColor) -> Set<Position> {
-        var attacked = Set<Position>()
-        for rank in 0..<8 {
-            for file in 0..<8 {
-                let pos = Position(rank, file)
-                guard let p = board.piece(at: pos), p.color == color else { continue }
-                for move in board.attackMoves(for: p, at: pos) {
-                    attacked.insert(move.to)
-                }
-            }
-        }
-        return attacked
-    }
-    private func tension(on board: ChessBoard) -> Int {
-        var score = 0
-        let whiteAttacks = attackedSquares(on: board, by: .white)
-        let blackAttacks = attackedSquares(on: board, by: .black)
-
-        for rank in 0..<8 {
-            for file in 0..<8 {
-                let pos = Position(rank, file)
-                guard let p = board.piece(at: pos) else { continue }
-
-                let isAttacked  = p.color == .white ? blackAttacks.contains(pos) : whiteAttacks.contains(pos)
-                let isDefended  = p.color == .white ? whiteAttacks.contains(pos) : blackAttacks.contains(pos)
-
-                if isAttacked && !isDefended {
-                    // Hanging piece — big tension, bad for the side that owns it
-                    let sign = p.color == .white ? -1 : 1
-                    score += sign * p.type.materialValue/10
-                } else if isAttacked && isDefended {
-                    // Contested square — smaller tension bonus
-                    let sign = p.color == .white ? -1 : 1
-                    score += sign * (p.type.materialValue / 100)
-                }
-            }
-        }
-        return score
-    }
-    
-    private func activity(on board: ChessBoard) -> Int {
-        var score = 0
-        for rank in 0..<8 {
-            for file in 0..<8 {
-                let pos = Position(rank, file)
-                guard let p = board.piece(at: pos) else { continue }
-                let sign = p.color == .white ? 1 : -1
-                for move in board.attackMoves(for: p, at: pos) {
-                    if let target = board.piece(at: move.to), target.color != p.color {
-                        score += sign * target.type.materialValue
-                    }
-                }
-            }
-        }
-        return score / 20
-    }
-    
-    private func positionalScore(on board: ChessBoard) -> Int {
-        // Tables are from white's perspective, rank 0 = white back rank.
-        // For black pieces the table is mirrored (rank 7 - rank).
-        
-        let pawnTable = [
-            [ 0,  0,  0,  0,  0,  0,  0,  0],
-            [50, 50, 50, 50, 50, 50, 50, 50],
-            [10, 10, 20, 30, 30, 20, 10, 10],
-            [ 5,  5, 10, 25, 25, 10,  5,  5],
-            [ 0,  0,  0, 20, 20,  0,  0,  0],
-            [ 5, -5,-10,  0,  0,-10, -5,  5],
-            [ 5, 10, 10,-20,-20, 10, 10,  5],
-            [ 0,  0,  0,  0,  0,  0,  0,  0]
-        ]
-        let knightTable = [
-            [-50,-40,-30,-30,-30,-30,-40,-50],
-            [-40,-20,  0,  0,  0,  0,-20,-40],
-            [-30,  0, 10, 15, 15, 10,  0,-30],
-            [-30,  5, 15, 20, 20, 15,  5,-30],
-            [-30,  0, 15, 20, 20, 15,  0,-30],
-            [-30,  5, 10, 15, 15, 10,  5,-30],
-            [-40,-20,  0,  5,  5,  0,-20,-40],
-            [-50,-40,-30,-30,-30,-30,-40,-50]
-        ]
-        let bishopTable = [
-            [-20,-10,-10,-10,-10,-10,-10,-20],
-            [-10,  0,  0,  0,  0,  0,  0,-10],
-            [-10,  0,  5, 10, 10,  5,  0,-10],
-            [-10,  5,  5, 10, 10,  5,  5,-10],
-            [-10,  0, 10, 10, 10, 10,  0,-10],
-            [-10, 10, 10, 10, 10, 10, 10,-10],
-            [-10,  5,  0,  0,  0,  0,  5,-10],
-            [-20,-10,-10,-10,-10,-10,-10,-20]
-        ]
-        let rookTable = [
-            [ 0,  0,  0,  0,  0,  0,  0,  0],
-            [ 5, 10, 10, 10, 10, 10, 10,  5],
-            [-5,  0,  0,  0,  0,  0,  0, -5],
-            [-5,  0,  0,  0,  0,  0,  0, -5],
-            [-5,  0,  0,  0,  0,  0,  0, -5],
-            [-5,  0,  0,  0,  0,  0,  0, -5],
-            [-5,  0,  0,  0,  0,  0,  0, -5],
-            [ 0,  0,  0,  5,  5,  0,  0,  0]
-        ]
-        let queenTable = [
-            [-20,-10,-10, -5, -5,-10,-10,-20],
-            [-10,  0,  0,  0,  0,  0,  0,-10],
-            [-10,  0,  5,  5,  5,  5,  0,-10],
-            [ -5,  0,  5,  5,  5,  5,  0, -5],
-            [  0,  0,  5,  5,  5,  5,  0, -5],
-            [-10,  5,  5,  5,  5,  5,  0,-10],
-            [-10,  0,  5,  0,  0,  0,  0,-10],
-            [-20,-10,-10, -5, -5,-10,-10,-20]
-        ]
-        let kingTable = [
-            [-30,-40,-40,-50,-50,-40,-40,-30],
-            [-30,-40,-40,-50,-50,-40,-40,-30],
-            [-30,-40,-40,-50,-50,-40,-40,-30],
-            [-30,-40,-40,-50,-50,-40,-40,-30],
-            [-20,-30,-30,-40,-40,-30,-30,-20],
-            [-10,-20,-20,-20,-20,-20,-20,-10],
-            [ 20, 20,  0,  0,  0,  0, 20, 20],
-            [ 20, 30, 10,  0,  0, 10, 30, 20]
-        ]
-
-        var score = 0
-        for rank in 0..<8 {
-            for file in 0..<8 {
-                guard let p = board.piece(at: Position(rank, file)) else { continue }
-                let sign = p.color == .white ? 1 : -1
-                // Mirror rank for black so the table always reads from that side's perspective
-                let r = p.color == .white ? rank : (7 - rank)
-                let table: [[Int]]
-                switch p.type {
-                case .pawn:   table = pawnTable
-                case .knight: table = knightTable
-                case .bishop: table = bishopTable
-                case .rook:   table = rookTable
-                case .queen:  table = queenTable
-                case .king:   table = kingTable
-                }
-                score += sign * table[7 - r][file]
-            }
-        }
-        return score
-    }
-    
-    private func evaluateBetter(on board: ChessBoard) -> Int {
-        return board.evaluate() + tension(on: board) + activity(on: board) + positionalScore(on: board)
-    }
+//    private func attackedSquares(on board: ChessBoard, by color: PieceColor) -> Set<Position> {
+//        var attacked = Set<Position>()
+//        for rank in 0..<8 {
+//            for file in 0..<8 {
+//                let pos = Position(rank, file)
+//                guard let p = board.piece(at: pos), p.color == color else { continue }
+//                for move in board.attackMoves(for: p, at: pos) {
+//                    attacked.insert(move.to)
+//                }
+//            }
+//        }
+//        return attacked
+//    }
+//    private func tension(on board: ChessBoard) -> Int {
+//        var score = 0
+//        let whiteAttacks = attackedSquares(on: board, by: .white)
+//        let blackAttacks = attackedSquares(on: board, by: .black)
+//
+//        for rank in 0..<8 {
+//            for file in 0..<8 {
+//                let pos = Position(rank, file)
+//                guard let p = board.piece(at: pos) else { continue }
+//
+//                let isAttacked  = p.color == .white ? blackAttacks.contains(pos) : whiteAttacks.contains(pos)
+//                let isDefended  = p.color == .white ? whiteAttacks.contains(pos) : blackAttacks.contains(pos)
+//
+//                if isAttacked && !isDefended {
+//                    // Hanging piece — big tension, bad for the side that owns it
+//                    let sign = p.color == .white ? -1 : 1
+//                    score += sign * p.type.materialValue/10
+//                } else if isAttacked && isDefended {
+//                    // Contested square — smaller tension bonus
+//                    let sign = p.color == .white ? -1 : 1
+//                    score += sign * (p.type.materialValue / 100)
+//                }
+//            }
+//        }
+//        return score
+//    }
+//    
+//    private func activity(on board: ChessBoard) -> Int {
+//        var score = 0
+//        for rank in 0..<8 {
+//            for file in 0..<8 {
+//                let pos = Position(rank, file)
+//                guard let p = board.piece(at: pos) else { continue }
+//                let sign = p.color == .white ? 1 : -1
+//                for move in board.attackMoves(for: p, at: pos) {
+//                    if let target = board.piece(at: move.to), target.color != p.color {
+//                        score += sign * target.type.materialValue
+//                    }
+//                }
+//            }
+//        }
+//        return score / 20
+//    }
+//    
+//    private func positionalScore(on board: ChessBoard) -> Int {
+//        // Tables are from white's perspective, rank 0 = white back rank.
+//        // For black pieces the table is mirrored (rank 7 - rank).
+//        
+//        let pawnTable = [
+//            [ 0,  0,  0,  0,  0,  0,  0,  0],
+//            [50, 50, 50, 50, 50, 50, 50, 50],
+//            [10, 10, 20, 30, 30, 20, 10, 10],
+//            [ 5,  5, 10, 25, 25, 10,  5,  5],
+//            [ 0,  0,  0, 20, 20,  0,  0,  0],
+//            [ 5, -5,-10,  0,  0,-10, -5,  5],
+//            [ 5, 10, 10,-20,-20, 10, 10,  5],
+//            [ 0,  0,  0,  0,  0,  0,  0,  0]
+//        ]
+//        let knightTable = [
+//            [-50,-40,-30,-30,-30,-30,-40,-50],
+//            [-40,-20,  0,  0,  0,  0,-20,-40],
+//            [-30,  0, 10, 15, 15, 10,  0,-30],
+//            [-30,  5, 15, 20, 20, 15,  5,-30],
+//            [-30,  0, 15, 20, 20, 15,  0,-30],
+//            [-30,  5, 10, 15, 15, 10,  5,-30],
+//            [-40,-20,  0,  5,  5,  0,-20,-40],
+//            [-50,-40,-30,-30,-30,-30,-40,-50]
+//        ]
+//        let bishopTable = [
+//            [-20,-10,-10,-10,-10,-10,-10,-20],
+//            [-10,  0,  0,  0,  0,  0,  0,-10],
+//            [-10,  0,  5, 10, 10,  5,  0,-10],
+//            [-10,  5,  5, 10, 10,  5,  5,-10],
+//            [-10,  0, 10, 10, 10, 10,  0,-10],
+//            [-10, 10, 10, 10, 10, 10, 10,-10],
+//            [-10,  5,  0,  0,  0,  0,  5,-10],
+//            [-20,-10,-10,-10,-10,-10,-10,-20]
+//        ]
+//        let rookTable = [
+//            [ 0,  0,  0,  0,  0,  0,  0,  0],
+//            [ 5, 10, 10, 10, 10, 10, 10,  5],
+//            [-5,  0,  0,  0,  0,  0,  0, -5],
+//            [-5,  0,  0,  0,  0,  0,  0, -5],
+//            [-5,  0,  0,  0,  0,  0,  0, -5],
+//            [-5,  0,  0,  0,  0,  0,  0, -5],
+//            [-5,  0,  0,  0,  0,  0,  0, -5],
+//            [ 0,  0,  0,  5,  5,  0,  0,  0]
+//        ]
+//        let queenTable = [
+//            [-20,-10,-10, -5, -5,-10,-10,-20],
+//            [-10,  0,  0,  0,  0,  0,  0,-10],
+//            [-10,  0,  5,  5,  5,  5,  0,-10],
+//            [ -5,  0,  5,  5,  5,  5,  0, -5],
+//            [  0,  0,  5,  5,  5,  5,  0, -5],
+//            [-10,  5,  5,  5,  5,  5,  0,-10],
+//            [-10,  0,  5,  0,  0,  0,  0,-10],
+//            [-20,-10,-10, -5, -5,-10,-10,-20]
+//        ]
+//        let kingTable = [
+//            [-30,-40,-40,-50,-50,-40,-40,-30],
+//            [-30,-40,-40,-50,-50,-40,-40,-30],
+//            [-30,-40,-40,-50,-50,-40,-40,-30],
+//            [-30,-40,-40,-50,-50,-40,-40,-30],
+//            [-20,-30,-30,-40,-40,-30,-30,-20],
+//            [-10,-20,-20,-20,-20,-20,-20,-10],
+//            [ 20, 20,  0,  0,  0,  0, 20, 20],
+//            [ 20, 30, 10,  0,  0, 10, 30, 20]
+//        ]
+//
+//        var score = 0
+//        for rank in 0..<8 {
+//            for file in 0..<8 {
+//                guard let p = board.piece(at: Position(rank, file)) else { continue }
+//                let sign = p.color == .white ? 1 : -1
+//                // Mirror rank for black so the table always reads from that side's perspective
+//                let r = p.color == .white ? rank : (7 - rank)
+//                let table: [[Int]]
+//                switch p.type {
+//                case .pawn:   table = pawnTable
+//                case .knight: table = knightTable
+//                case .bishop: table = bishopTable
+//                case .rook:   table = rookTable
+//                case .queen:  table = queenTable
+//                case .king:   table = kingTable
+//                }
+//                score += sign * table[7 - r][file]
+//            }
+//        }
+//        return score
+//    }
+//    
+//    private func evaluateBetter(on board: ChessBoard) -> Int {
+//        return board.evaluate() + tension(on: board) + activity(on: board) + positionalScore(on: board)
+//    }
 
     private func minimax(board: ChessBoard, depth: Int, isMaximising: Bool, alpha: Int = Int.min, beta: Int = Int.max) -> (Move?, Int) {
          // your code here
@@ -241,4 +241,152 @@ class ChessAI {
 //         }
 //         return sorted[0]
      }
+}
+
+func attackedSquares(on board: ChessBoard, by color: PieceColor) -> Set<Position> {
+    var attacked = Set<Position>()
+    for rank in 0..<8 {
+        for file in 0..<8 {
+            let pos = Position(rank, file)
+            guard let p = board.piece(at: pos), p.color == color else { continue }
+            for move in board.attackMoves(for: p, at: pos) {
+                attacked.insert(move.to)
+            }
+        }
+    }
+    return attacked
+}
+func tension(on board: ChessBoard) -> Int {
+    var score = 0
+    let whiteAttacks = attackedSquares(on: board, by: .white)
+    let blackAttacks = attackedSquares(on: board, by: .black)
+
+    for rank in 0..<8 {
+        for file in 0..<8 {
+            let pos = Position(rank, file)
+            guard let p = board.piece(at: pos) else { continue }
+
+            let isAttacked  = p.color == .white ? blackAttacks.contains(pos) : whiteAttacks.contains(pos)
+            let isDefended  = p.color == .white ? whiteAttacks.contains(pos) : blackAttacks.contains(pos)
+
+            if isAttacked && !isDefended {
+                // Hanging piece — big tension, bad for the side that owns it
+                let sign = p.color == .white ? -1 : 1
+                score += sign * p.type.materialValue/10
+            } else if isAttacked && isDefended {
+                // Contested square — smaller tension bonus
+                let sign = p.color == .white ? -1 : 1
+                score += sign * (p.type.materialValue / 100)
+            }
+        }
+    }
+    return score
+}
+
+func activity(on board: ChessBoard) -> Int {
+    var score = 0
+    for rank in 0..<8 {
+        for file in 0..<8 {
+            let pos = Position(rank, file)
+            guard let p = board.piece(at: pos) else { continue }
+            let sign = p.color == .white ? 1 : -1
+            for move in board.attackMoves(for: p, at: pos) {
+                if let target = board.piece(at: move.to), target.color != p.color {
+                    score += sign * target.type.materialValue
+                }
+            }
+        }
+    }
+    return score / 20
+}
+
+func positionalScore(on board: ChessBoard) -> Int {
+    // Tables are from white's perspective, rank 0 = white back rank.
+    // For black pieces the table is mirrored (rank 7 - rank).
+    
+    let pawnTable = [
+        [ 0,  0,  0,  0,  0,  0,  0,  0],
+        [50, 50, 50, 50, 50, 50, 50, 50],
+        [10, 10, 20, 30, 30, 20, 10, 10],
+        [ 5,  5, 10, 25, 25, 10,  5,  5],
+        [ 0,  0,  0, 20, 20,  0,  0,  0],
+        [ 5, -5,-10,  0,  0,-10, -5,  5],
+        [ 5, 10, 10,-20,-20, 10, 10,  5],
+        [ 0,  0,  0,  0,  0,  0,  0,  0]
+    ]
+    let knightTable = [
+        [-50,-40,-30,-30,-30,-30,-40,-50],
+        [-40,-20,  0,  0,  0,  0,-20,-40],
+        [-30,  0, 10, 15, 15, 10,  0,-30],
+        [-30,  5, 15, 20, 20, 15,  5,-30],
+        [-30,  0, 15, 20, 20, 15,  0,-30],
+        [-30,  5, 10, 15, 15, 10,  5,-30],
+        [-40,-20,  0,  5,  5,  0,-20,-40],
+        [-50,-40,-30,-30,-30,-30,-40,-50]
+    ]
+    let bishopTable = [
+        [-20,-10,-10,-10,-10,-10,-10,-20],
+        [-10,  0,  0,  0,  0,  0,  0,-10],
+        [-10,  0,  5, 10, 10,  5,  0,-10],
+        [-10,  5,  5, 10, 10,  5,  5,-10],
+        [-10,  0, 10, 10, 10, 10,  0,-10],
+        [-10, 10, 10, 10, 10, 10, 10,-10],
+        [-10,  5,  0,  0,  0,  0,  5,-10],
+        [-20,-10,-10,-10,-10,-10,-10,-20]
+    ]
+    let rookTable = [
+        [ 0,  0,  0,  0,  0,  0,  0,  0],
+        [ 5, 10, 10, 10, 10, 10, 10,  5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [-5,  0,  0,  0,  0,  0,  0, -5],
+        [ 0,  0,  0,  5,  5,  0,  0,  0]
+    ]
+    let queenTable = [
+        [-20,-10,-10, -5, -5,-10,-10,-20],
+        [-10,  0,  0,  0,  0,  0,  0,-10],
+        [-10,  0,  5,  5,  5,  5,  0,-10],
+        [ -5,  0,  5,  5,  5,  5,  0, -5],
+        [  0,  0,  5,  5,  5,  5,  0, -5],
+        [-10,  5,  5,  5,  5,  5,  0,-10],
+        [-10,  0,  5,  0,  0,  0,  0,-10],
+        [-20,-10,-10, -5, -5,-10,-10,-20]
+    ]
+    let kingTable = [
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-30,-40,-40,-50,-50,-40,-40,-30],
+        [-20,-30,-30,-40,-40,-30,-30,-20],
+        [-10,-20,-20,-20,-20,-20,-20,-10],
+        [ 20, 20,  0,  0,  0,  0, 20, 20],
+        [ 20, 30, 10,  0,  0, 10, 30, 20]
+    ]
+
+    var score = 0
+    for rank in 0..<8 {
+        for file in 0..<8 {
+            guard let p = board.piece(at: Position(rank, file)) else { continue }
+            let sign = p.color == .white ? 1 : -1
+            // Mirror rank for black so the table always reads from that side's perspective
+            let r = p.color == .white ? rank : (7 - rank)
+            let table: [[Int]]
+            switch p.type {
+            case .pawn:   table = pawnTable
+            case .knight: table = knightTable
+            case .bishop: table = bishopTable
+            case .rook:   table = rookTable
+            case .queen:  table = queenTable
+            case .king:   table = kingTable
+            }
+            score += sign * table[7 - r][file]
+        }
+    }
+    return score
+}
+
+func evaluateBetter(on board: ChessBoard) -> Int {
+    return board.evaluate() + tension(on: board) + activity(on: board) + positionalScore(on: board)
 }

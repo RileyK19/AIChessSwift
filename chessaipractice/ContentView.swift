@@ -30,8 +30,8 @@ struct ContentView: View {
                 }
             }
         case .depthPicker:
-            DepthPickerView(playerColor: pendingColor ?? .white) { depth in
-                vm.startVsAI(playerColor: pendingColor ?? .white, depth: depth)
+            DepthPickerView(playerColor: pendingColor ?? .white) { aiType in
+                vm.startVsAI(playerColor: pendingColor ?? .white, aiType: aiType)
                 screen = .game
             } onBack: {
                 screen = .home
@@ -90,44 +90,67 @@ struct HomeView: View {
 
 // MARK: - Depth Picker View
 
+enum AIPickerMode: String, CaseIterable {
+    case minimax = "Minimax"
+    case mcts    = "Monte Carlo"
+}
+
 struct DepthPickerView: View {
     let playerColor: PieceColor
-    let onStart: (Int) -> Void
+    let onStart: (AIType) -> Void
     let onBack: () -> Void
 
+    @State private var aiMode: AIPickerMode = .minimax
     @State private var selectedDepth = 3
+    @State private var selectedIterations = 1000
 
-    private func label(for depth: Int) -> String {
+    // MARK: Minimax labels
+    private func depthLabel(for depth: Int) -> String {
         switch depth {
-        case 1: return "Depth 1 — Instant"
-        case 2: return "Depth 2 — Fast"
-        case 3: return "Depth 3 — Balanced"
-        case 4: return "Depth 4 — Slow ⚠️"
-        case 5: return "Depth 5 — Very Slow ⚠️"
+        case 1:  return "Depth 1 — Instant"
+        case 2:  return "Depth 2 — Fast"
+        case 3:  return "Depth 3 — Balanced"
+        case 4:  return "Depth 4 — Slow ⚠️"
+        case 5:  return "Depth 5 — Very Slow ⚠️"
         default: return "Depth \(depth) — Extremely Slow 🐢"
         }
     }
 
-    private func warning(for depth: Int) -> String? {
+    private func depthWarning(for depth: Int) -> String? {
         switch depth {
-        case 4: return "Expect 5–15 seconds per move."
-        case 5: return "May take 30+ seconds per move."
-        case 6: return "Could take several minutes per move."
+        case 4:    return "Expect 5–15 seconds per move."
+        case 5:    return "May take 30+ seconds per move."
+        case 6:    return "Could take several minutes per move."
         case 7...10: return "This will likely freeze the app. For research only!"
-        default: return nil
+        default:   return nil
         }
     }
 
-    private func warningColor(for depth: Int) -> Color {
-        depth >= 6 ? .red : .orange
+    // MARK: MCTS labels
+    private func iterLabel(for n: Int) -> String {
+        switch n {
+        case ..<2000: return "\(n) sims — Balanced"
+        case ..<5000: return "\(n) sims — Slow ⚠️"
+        default:      return "\(n) sims — Very Slow ⚠️"
+        }
     }
+
+    private func iterWarning(for n: Int) -> String? {
+        switch n {
+        case 2000..<5000: return "Expect a few seconds per move."
+        case 5000...:     return "May take 10+ seconds per move."
+        default:          return nil
+        }
+    }
+
+    private var warningColor: Color { .orange }
 
     var body: some View {
         ZStack {
             Color(.systemBackground).ignoresSafeArea()
 
-            VStack(spacing: 28) {
-                // Back + title
+            VStack(spacing: 24) {
+                // Back
                 HStack {
                     Button(action: onBack) {
                         HStack(spacing: 4) {
@@ -140,74 +163,146 @@ struct DepthPickerView: View {
                 }
                 .padding(.horizontal, 24)
 
+                // Title
                 VStack(spacing: 6) {
                     Text("🤖")
                         .font(.system(size: 52))
-                    Text("AI Difficulty")
+                    Text("AI Settings")
                         .font(.system(size: 28, weight: .black, design: .rounded))
                     Text("Playing as \(playerColor == .white ? "White ♙" : "Black ♟")")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
 
-                // Depth stepper
-                VStack(spacing: 12) {
-                    HStack(spacing: 20) {
-                        Button {
-                            if selectedDepth > 1 { selectedDepth -= 1 }
-                        } label: {
-                            Image(systemName: "minus.circle.fill")
-                                .font(.system(size: 36))
-                                .foregroundColor(selectedDepth > 1 ? .accentColor : .secondary)
-                        }
-                        .disabled(selectedDepth <= 1)
-
-                        Text("\(selectedDepth)")
-                            .font(.system(size: 64, weight: .black, design: .rounded))
-                            .frame(width: 90)
-                            .monospacedDigit()
-
-                        Button {
-                            if selectedDepth < 10 { selectedDepth += 1 }
-                        } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 36))
-                                .foregroundColor(selectedDepth < 10 ? .accentColor : .secondary)
-                        }
-                        .disabled(selectedDepth >= 10)
+                // Algorithm picker
+                Picker("AI Mode", selection: $aiMode) {
+                    ForEach(AIPickerMode.allCases, id: \.self) { mode in
+                        Text(mode.rawValue).tag(mode)
                     }
-
-                    Text(label(for: selectedDepth))
-                        .font(.headline)
-                        .foregroundColor(.secondary)
                 }
+                .pickerStyle(.segmented)
+                .padding(.horizontal, 32)
 
-                // Warning box
-                if let warning = warning(for: selectedDepth) {
-                    HStack(spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(warningColor(for: selectedDepth))
-                        Text(warning)
-                            .font(.subheadline)
-                            .foregroundColor(warningColor(for: selectedDepth))
-                    }
-                    .padding(12)
-                    .background(warningColor(for: selectedDepth).opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .padding(.horizontal, 32)
-                    .transition(.opacity)
-                    .animation(.easeInOut, value: selectedDepth)
+                // Controls swap based on mode
+                if aiMode == .minimax {
+                    minimaxControls
                 } else {
-                    // Placeholder to keep layout stable
-                    Color.clear.frame(height: 44)
+                    mctsControls
                 }
 
-                // Start button
+                Spacer()
+
+                // Start
                 MenuButton("Start Game", icon: "play.fill") {
-                    onStart(selectedDepth)
+                    switch aiMode {
+                    case .minimax: onStart(.minimax(depth: selectedDepth))
+                    case .mcts:    onStart(.mcts(iterations: selectedIterations))
+                    }
                 }
                 .padding(.horizontal, 40)
+                .padding(.bottom, 16)
             }
+        }
+    }
+
+    // MARK: Minimax controls
+
+    @ViewBuilder
+    private var minimaxControls: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 20) {
+                Button { if selectedDepth > 1 { selectedDepth -= 1 } } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(selectedDepth > 1 ? .accentColor : .secondary)
+                }
+                .disabled(selectedDepth <= 1)
+
+                Text("\(selectedDepth)")
+                    .font(.system(size: 64, weight: .black, design: .rounded))
+                    .frame(width: 90)
+                    .monospacedDigit()
+
+                Button { if selectedDepth < 10 { selectedDepth += 1 } } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(selectedDepth < 10 ? .accentColor : .secondary)
+                }
+                .disabled(selectedDepth >= 10)
+            }
+
+            Text(depthLabel(for: selectedDepth))
+                .font(.headline)
+                .foregroundColor(.secondary)
+
+            warningBox(depthWarning(for: selectedDepth))
+        }
+    }
+
+    // MARK: MCTS controls
+
+    private let iterSteps = [1000, 2000, 3000, 5000, 7500, 10000]
+
+    @ViewBuilder
+    private var mctsControls: some View {
+        VStack(spacing: 12) {
+            HStack(spacing: 20) {
+                Button {
+                    if let i = iterSteps.firstIndex(of: selectedIterations), i > 0 {
+                        selectedIterations = iterSteps[i - 1]
+                    }
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(selectedIterations > iterSteps.first! ? .accentColor : .secondary)
+                }
+                .disabled(selectedIterations <= iterSteps.first!)
+
+                Text("\(selectedIterations)")
+                    .font(.system(size: 52, weight: .black, design: .rounded))
+                    .frame(width: 110)
+                    .monospacedDigit()
+
+                Button {
+                    if let i = iterSteps.firstIndex(of: selectedIterations), i < iterSteps.count - 1 {
+                        selectedIterations = iterSteps[i + 1]
+                    }
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 36))
+                        .foregroundColor(selectedIterations < iterSteps.last! ? .accentColor : .secondary)
+                }
+                .disabled(selectedIterations >= iterSteps.last!)
+            }
+
+            Text(iterLabel(for: selectedIterations))
+                .font(.headline)
+                .foregroundColor(.secondary)
+
+            warningBox(iterWarning(for: selectedIterations))
+        }
+    }
+
+    // MARK: Shared warning box
+
+    @ViewBuilder
+    private func warningBox(_ message: String?) -> some View {
+        if let message {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(warningColor)
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundColor(warningColor)
+            }
+            .padding(12)
+            .background(warningColor.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 32)
+            .transition(.opacity)
+            .animation(.easeInOut, value: message)
+        } else {
+            Color.clear.frame(height: 44)
         }
     }
 }

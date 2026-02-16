@@ -8,6 +8,13 @@
 import SwiftUI
 import Combine
 
+// MARK: - AI Type
+
+enum AIType {
+    case minimax(depth: Int)
+    case mcts(iterations: Int)
+}
+
 // MARK: - Game Mode
 
 enum GameMode {
@@ -24,27 +31,35 @@ class GameViewModel: ObservableObject {
     @Published var selectedSquare: Position? = nil
     @Published var legalTargets: [Position] = []
     @Published var status: GameStatus = .playing
-    @Published var promotionPending: Move? = nil    // waiting for user to pick promotion piece
+    @Published var promotionPending: Move? = nil
     @Published var lastMove: Move? = nil
     @Published var aiThinking = false
 
     var gameMode: GameMode = .twoPlayer
-    private var ai: ChessAI? = nil
+    private var minimaxAI: ChessAI? = nil
+    private var mctsAI: ChessMCTS? = nil
     private var aiTask: Task<Void, Never>? = nil
 
     // MARK: - Start / Reset
 
     func startTwoPlayer() {
         gameMode = .twoPlayer
-        ai = nil
+        minimaxAI = nil
+        mctsAI = nil
         resetBoard()
     }
 
-    func startVsAI(playerColor: PieceColor, depth: Int = 3) {
+    func startVsAI(playerColor: PieceColor, aiType: AIType) {
         gameMode = .vsAI(playerColor: playerColor)
-        ai = ChessAI(color: playerColor.opposite, depth: depth)
+        minimaxAI = nil
+        mctsAI = nil
+        switch aiType {
+        case .minimax(let depth):
+            minimaxAI = ChessAI(color: playerColor.opposite, depth: depth)
+        case .mcts(let iterations):
+            mctsAI = ChessMCTS(color: playerColor.opposite, iterations: iterations)
+        }
         resetBoard()
-        // If player chose black, AI (white) moves first
         if playerColor == .black {
             triggerAIMove()
         }
@@ -132,7 +147,6 @@ class GameViewModel: ObservableObject {
     private func applyAndAdvance(_ move: Move) {
         board.applyMove(move)
         lastMove = move
-        print("\(board.currentTurn.opposite == .white ? "White" : "Black"): \(move.from.algebraic)\(move.to.algebraic)")
         status = board.gameStatus()
 
         guard isGameActive else { return }
@@ -146,16 +160,25 @@ class GameViewModel: ObservableObject {
     // MARK: - AI Turn
 
     private func triggerAIMove() {
-        guard let ai else { return }
         guard case .vsAI(_) = gameMode else { return }
-        guard board.currentTurn == ai.color else { return }
+        let isMinimaxTurn = minimaxAI.map { $0.color == board.currentTurn } ?? false
+        let isMCTSTurn    = mctsAI.map    { $0.color == board.currentTurn } ?? false
+        guard isMinimaxTurn || isMCTSTurn else { return }
 
         aiThinking = true
 
         aiTask = Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             let boardCopy = await ChessBoard(copying: self.board)
-            let move = ai.bestMove(on: boardCopy)
+
+            let move: Move?
+            if let minimax = await self.minimaxAI {
+                move = minimax.bestMove(on: boardCopy)
+            } else if let mcts = await self.mctsAI {
+                move = mcts.bestMove(on: boardCopy)
+            } else {
+                move = nil
+            }
 
             await MainActor.run {
                 self.aiThinking = false
