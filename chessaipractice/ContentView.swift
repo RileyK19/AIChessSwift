@@ -30,7 +30,11 @@ struct ContentView: View {
                 }
             }
         case .depthPicker:
-            DepthPickerView(playerColor: pendingColor ?? .white) { aiType in
+            DepthPickerView(
+                playerColor: pendingColor ?? .white,
+                availableOpenings: vm.openingBook.availableOpenings
+            ) { aiType, opening in
+                vm.selectedOpening = opening
                 vm.startVsAI(playerColor: pendingColor ?? .white, aiType: aiType)
                 screen = .game
             } onBack: {
@@ -97,12 +101,16 @@ enum AIPickerMode: String, CaseIterable {
 
 struct DepthPickerView: View {
     let playerColor: PieceColor
-    let onStart: (AIType) -> Void
+    let availableOpenings: [String]
+    let onStart: (AIType, String?) -> Void
     let onBack: () -> Void
 
     @State private var aiMode: AIPickerMode = .minimax
     @State private var selectedDepth = 3
     @State private var selectedIterations = 1000
+    @State private var selectedOpening: String? = nil
+    @State private var showOpeningPicker = false
+    @State private var openingSearch = ""
 
     // MARK: Minimax labels
     private func depthLabel(for depth: Int) -> String {
@@ -192,16 +200,51 @@ struct DepthPickerView: View {
 
                 Spacer()
 
+                // Opening picker
+                VStack(spacing: 8) {
+                    Button {
+                        showOpeningPicker = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "book.fill")
+                            Text(selectedOpening ?? "Any Opening (Random)")
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(12)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(10)
+                        .foregroundColor(selectedOpening != nil ? .accentColor : .primary)
+                    }
+                    if selectedOpening != nil {
+                        Button("Clear opening") { selectedOpening = nil }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .padding(.horizontal, 40)
+
                 // Start
                 MenuButton("Start Game", icon: "play.fill") {
                     switch aiMode {
-                    case .minimax: onStart(.minimax(depth: selectedDepth))
-                    case .mcts:    onStart(.mcts(iterations: selectedIterations))
+                    case .minimax: onStart(.minimax(depth: selectedDepth), selectedOpening)
+                    case .mcts:    onStart(.mcts(iterations: selectedIterations), selectedOpening)
                     }
                 }
                 .padding(.horizontal, 40)
                 .padding(.bottom, 16)
             }
+        }
+        .sheet(isPresented: $showOpeningPicker) {
+            OpeningPickerSheet(
+                openings: availableOpenings,
+                selected: $selectedOpening,
+                isPresented: $showOpeningPicker
+            )
         }
     }
 
@@ -392,6 +435,12 @@ struct GameView: View {
                             .font(.caption)
                             .foregroundColor(.red)
                     }
+                    if let opening = vm.currentOpeningName {
+                        Text("📖 \(opening)")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                            .transition(.opacity)
+                    }
                 }
             }
             Spacer()
@@ -549,6 +598,65 @@ struct MenuButton: View {
 // MARK: - Move conformance to Identifiable (for sheet binding)
 extension Move: Identifiable {
     public var id: String { "\(from.rank)\(from.file)\(to.rank)\(to.file)\(promotion.map { "\($0)" } ?? "")" }
+}
+
+
+// MARK: - Opening Picker Sheet
+
+struct OpeningPickerSheet: View {
+    let openings: [String]
+    @Binding var selected: String?
+    @Binding var isPresented: Bool
+    @State private var search = ""
+
+    private var filtered: [String] {
+        search.isEmpty ? openings : openings.filter { $0.localizedCaseInsensitiveContains(search) }
+    }
+
+    var body: some View {
+        NavigationView {
+            List {
+                // Any opening option
+                Button {
+                    selected = nil
+                    isPresented = false
+                } label: {
+                    HStack {
+                        Text("Any Opening (Random)")
+                            .foregroundColor(.primary)
+                        Spacer()
+                        if selected == nil {
+                            Image(systemName: "checkmark").foregroundColor(.accentColor)
+                        }
+                    }
+                }
+
+                ForEach(filtered, id: \.self) { opening in
+                    Button {
+                        selected = opening
+                        isPresented = false
+                    } label: {
+                        HStack {
+                            Text(opening)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if selected == opening {
+                                Image(systemName: "checkmark").foregroundColor(.accentColor)
+                            }
+                        }
+                    }
+                }
+            }
+            .searchable(text: $search, prompt: "Search openings…")
+            .navigationTitle("Choose Opening")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { isPresented = false }
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Preview

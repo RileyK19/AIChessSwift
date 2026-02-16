@@ -40,6 +40,22 @@ class GameViewModel: ObservableObject {
     private var mctsAI: ChessMCTS? = nil
     private var aiTask: Task<Void, Never>? = nil
 
+    let openingBook = ChessOpeningBook()
+    @Published var currentOpeningName: String? = nil
+    var selectedOpening: String? = nil   // nil = any book line, set to lock to a specific opening
+
+    init() {
+        if let url = Bundle.main.url(forResource: "eco_interpolated", withExtension: "json") {
+            print("✅ Found json at: \(url)")
+        } else {
+            print("❌ Could not find eco_interpolated.json in bundle")
+            // list everything in bundle to see what's there
+            let paths = Bundle.main.paths(forResourcesOfType: "json", inDirectory: nil)
+            print("JSON files in bundle: \(paths)")
+        }
+        openingBook.load()
+    }
+
     // MARK: - Start / Reset
 
     func startTwoPlayer() {
@@ -163,21 +179,39 @@ class GameViewModel: ObservableObject {
         guard case .vsAI(_) = gameMode else { return }
         let isMinimaxTurn = minimaxAI.map { $0.color == board.currentTurn } ?? false
         let isMCTSTurn    = mctsAI.map    { $0.color == board.currentTurn } ?? false
-        guard isMinimaxTurn || isMCTSTurn else { return }
+        // Also allow book-only mode (no AI set yet)
+        guard isMinimaxTurn || isMCTSTurn || openingBook.isLoaded else { return }
 
         aiThinking = true
 
         aiTask = Task.detached(priority: .userInitiated) { [weak self] in
             guard let self else { return }
             let boardCopy = await ChessBoard(copying: self.board)
+            let book      = await self.openingBook
+            let opening   = await self.selectedOpening
+
+            // 1. Try opening book first
+            let bookMove: Move? = {
+                if let name = opening {
+                    return book.nextMove(for: boardCopy, opening: name)
+                }
+                return book.nextMove(for: boardCopy)
+            }()
 
             let move: Move?
-            if let minimax = await self.minimaxAI {
-                move = minimax.bestMove(on: boardCopy)
-            } else if let mcts = await self.mctsAI {
-                move = mcts.bestMove(on: boardCopy)
+            if let bm = bookMove {
+                move = bm
+                let name = book.openingName(for: boardCopy)
+                await MainActor.run { self.currentOpeningName = name }
             } else {
-                move = nil
+                await MainActor.run { self.currentOpeningName = nil }
+                if let minimax = await self.minimaxAI {
+                    move = minimax.bestMove(on: boardCopy)
+                } else if let mcts = await self.mctsAI {
+                    move = mcts.bestMove(on: boardCopy)
+                } else {
+                    move = nil
+                }
             }
 
             await MainActor.run {
